@@ -37,50 +37,57 @@ function Login({ onLogin }) {
           Welcome Back
         </h2>
         <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.8rem',
-              marginBottom: '1rem',
-              border: '1px solid #ccc',
-              borderRadius: '8px',
-              fontSize: '1rem',
-            }}
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.8rem',
-              marginBottom: '1rem',
-              border: '1px solid #ccc',
-              borderRadius: '8px',
-              fontSize: '1rem',
-            }}
-          />
-          <button
-            type="submit"
-            style={{
-              width: '100%',
-              padding: '0.8rem',
-              background: '#ba68c8',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-            }}
-          >
-            Login
-          </button>
+          <div style={{ width: '100%' }}>
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '0.8rem',
+                marginBottom: '1rem',
+                border: '1px solid #ccc',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                display: 'block',
+              }}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '0.8rem',
+                marginBottom: '1rem',
+                border: '1px solid #ccc',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                display: 'block',
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '0.8rem',
+                background: '#ba68c8',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                display: 'block',
+              }}
+            >
+              Login
+            </button>
+          </div>
         </form>
       </div>
     </div>

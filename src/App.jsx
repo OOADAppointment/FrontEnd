@@ -7,10 +7,41 @@ import Timeline from './components/Timeline';
 function App() {
   const [user, setUser] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [appointments, setAppointments] = useState([
-    { date: '2023-11-01', name: 'Meeting', start: '10:00 AM', end: '11:00 AM', location: 'Room A' },
-    { date: '2023-11-01', name: 'Lunch', start: '12:00 PM', end: '1:00 PM', location: 'Cafeteria' },
-  ]);
+
+  // Fake data for demonstration (covering many days in months 4-7, 2025)
+  const appointments = [
+    // April 2025
+    { name: 'Meeting', start: '10:30', end: '12:45', date: '2025-04-01' },
+    { name: 'Lunch', start: '13:00', end: '15:50', date: '2025-04-01' },
+    { name: 'Workshop', start: '15:00', end: '17:00', date: '2025-04-02' },
+    { name: 'Late Task', start: '20:00', end: '23:00', date: '2025-04-02' },
+    { name: 'Night Shift', start: '22:00', end: '24:00', date: '2025-04-03' },
+    { name: 'Morning Brief', start: '08:00', end: '09:00', date: '2025-04-03' },
+    { name: 'Team Sync', start: '09:30', end: '10:30', date: '2025-04-04' },
+    { name: 'Design Review', start: '14:00', end: '15:00', date: '2025-04-04' },
+    // May 2025
+    { name: '1:1', start: '11:00', end: '11:30', date: '2025-05-05' },
+    { name: 'Wrap Up', start: '16:00', end: '17:00', date: '2025-05-05' },
+    { name: 'Planning', start: '09:00', end: '10:00', date: '2025-05-06' },
+    { name: 'Retrospective', start: '15:00', end: '16:00', date: '2025-05-06' },
+    { name: 'Demo', start: '13:00', end: '14:00', date: '2025-05-07' },
+    { name: 'Support', start: '10:00', end: '12:00', date: '2025-05-08' },
+    // June 2025
+    { name: 'Check-in', start: '09:00', end: '09:30', date: '2025-06-09' },
+    { name: 'Night Shift', start: '22:00', end: '24:00', date: '2025-06-10' },
+    { name: 'Sprint Start', start: '09:00', end: '10:00', date: '2025-06-11' },
+    { name: 'Code Review', start: '14:00', end: '15:30', date: '2025-06-12' },
+    { name: 'Brainstorm', start: '11:00', end: '12:00', date: '2025-06-13' },
+    // July 2025
+    { name: 'Release', start: '10:00', end: '11:00', date: '2025-07-01' },
+    { name: 'Hotfix', start: '15:00', end: '16:00', date: '2025-07-02' },
+    { name: 'All Hands', start: '09:00', end: '10:30', date: '2025-07-03' },
+    { name: 'Wrap Up', start: '16:00', end: '17:00', date: '2025-07-04' },
+    { name: 'Night Shift', start: '22:00', end: '24:00', date: '2025-07-05' },
+    { name: 'Morning Brief', start: '08:00', end: '09:00', date: '2025-07-06' },
+    { name: 'Team Sync', start: '09:30', end: '10:30', date: '2025-07-07' },
+    { name: 'Design Review', start: '14:00', end: '15:00', date: '2025-07-08' },
+  ];
 
   const handleLogin = (username) => {
     setUser(username);
@@ -42,7 +73,7 @@ function App() {
             path="/"
             element={
               user ? (
-                <div style={{ display: 'flex', height: '90vh', width: '90vw', maxWidth: '1600px', maxHeight: '900px', background: 'transparent' }}>
+                <div style={{ display: 'flex', height: '90vh', width: '100vw', maxWidth: '1600px', maxHeight: '900px', background: 'transparent' }}>
                   <div style={{ flex: 1, borderRight: '1px solid #ddd', padding: '1rem', minWidth: 0 }}>
                     <Calendar
                       onDateClick={handleDateClick}
