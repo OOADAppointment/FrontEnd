@@ -34,6 +34,7 @@ function App() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
+          overflow: 'hidden', // prevent scroll on the whole app
         }}
       >
         <Routes>
@@ -41,16 +42,30 @@ function App() {
             path="/"
             element={
               user ? (
-                <div style={{ display: 'flex', height: '100%', width: '100%' }}>
-                  <div style={{ flex: 1, borderRight: '1px solid #ddd', padding: '1rem' }}>
+                <div style={{ display: 'flex', height: '90vh', width: '90vw', maxWidth: '1600px', maxHeight: '900px', background: 'transparent' }}>
+                  <div style={{ flex: 1, borderRight: '1px solid #ddd', padding: '1rem', minWidth: 0 }}>
                     <Calendar
                       onDateClick={handleDateClick}
                       appointments={appointments}
                       username={user}
                     />
                   </div>
-                  <div style={{ flex: 2, padding: '1rem' }}>
-                    <Timeline selectedDate={selectedDate} appointments={filteredAppointments} />
+                  <div style={{ flex: 2, padding: '1rem', minWidth: 0, height: '100%' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: '100%',
+                        overflowX: 'auto',
+                        overflowY: 'auto',
+                        borderRadius: '12px',
+                        background: 'transparent',
+                        boxSizing: 'border-box',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                    >
+                      <Timeline selectedDate={selectedDate} appointments={filteredAppointments} />
+                    </div>
                   </div>
                 </div>
               ) : (
