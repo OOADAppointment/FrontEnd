@@ -1,10 +1,12 @@
-function Timeline({ selectedDate, appointments }) {
+import { useState } from 'react';
+
+function Timeline({ selectedDate }) {
   // Show all 25 hours (0-24)
   const hours = Array.from({ length: 25 }, (_, i) => i);
 
   // Fake data for demonstration (covering many days in months 4-7, 2025)
-  const fakeAppointments = [
-    // April 2025
+  const initialAppointments = [
+    // ...existing appointments...
     { name: 'Meeting', start: '10:30', end: '12:45', date: '2025-04-01' },
     { name: 'Lunch', start: '13:00', end: '15:50', date: '2025-04-01' },
     { name: 'Workshop', start: '15:00', end: '17:00', date: '2025-04-02' },
@@ -13,20 +15,17 @@ function Timeline({ selectedDate, appointments }) {
     { name: 'Morning Brief', start: '08:00', end: '09:00', date: '2025-04-03' },
     { name: 'Team Sync', start: '09:30', end: '10:30', date: '2025-04-04' },
     { name: 'Design Review', start: '14:00', end: '15:00', date: '2025-04-04' },
-    // May 2025
     { name: '1:1', start: '11:00', end: '11:30', date: '2025-05-05' },
     { name: 'Wrap Up', start: '16:00', end: '17:00', date: '2025-05-05' },
     { name: 'Planning', start: '09:00', end: '10:00', date: '2025-05-06' },
     { name: 'Retrospective', start: '15:00', end: '16:00', date: '2025-05-06' },
     { name: 'Demo', start: '13:00', end: '14:00', date: '2025-05-07' },
     { name: 'Support', start: '10:00', end: '12:00', date: '2025-05-08' },
-    // June 2025
     { name: 'Check-in', start: '09:00', end: '09:30', date: '2025-06-09' },
     { name: 'Night Shift', start: '22:00', end: '24:00', date: '2025-06-10' },
     { name: 'Sprint Start', start: '09:00', end: '10:00', date: '2025-06-11' },
     { name: 'Code Review', start: '14:00', end: '15:30', date: '2025-06-12' },
     { name: 'Brainstorm', start: '11:00', end: '12:00', date: '2025-06-13' },
-    // July 2025
     { name: 'Release', start: '10:00', end: '11:00', date: '2025-07-01' },
     { name: 'Hotfix', start: '15:00', end: '16:00', date: '2025-07-02' },
     { name: 'All Hands', start: '09:00', end: '10:30', date: '2025-07-03' },
@@ -37,22 +36,132 @@ function Timeline({ selectedDate, appointments }) {
     { name: 'Design Review', start: '14:00', end: '15:00', date: '2025-07-08' },
   ];
 
-  // Use selectedDate to filter
+  // State quản lý danh sách cuộc hẹn
+  const [appointments, setAppointments] = useState(initialAppointments);
+
+  // State cho form thêm/sửa cuộc hẹn
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    start: '',
+    end: '',
+  });
+  const [editIndex, setEditIndex] = useState(null);
+
+  // State cho popup chi tiết
+  const [showDetail, setShowDetail] = useState(false);
+  const [detailIndex, setDetailIndex] = useState(null);
+
+  const handleOpenForm = () => {
+    setShowForm(true);
+    setEditIndex(null);
+    setFormData({ name: '', start: '', end: '' });
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditIndex(null);
+    setFormData({ name: '', start: '', end: '' });
+  };
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.start || !formData.end) return;
+    if (editIndex !== null) {
+      // Edit
+      const updated = [...appointments];
+      updated[editIndex] = {
+        ...updated[editIndex],
+        name: formData.name,
+        start: formData.start,
+        end: formData.end,
+        date: selectedDate.toISOString().split('T')[0],
+      };
+      setAppointments(updated);
+    } else {
+      // Add
+      setAppointments([
+        ...appointments,
+        {
+          name: formData.name,
+          start: formData.start,
+          end: formData.end,
+          date: selectedDate.toISOString().split('T')[0],
+        },
+      ]);
+    }
+    handleCloseForm();
+    setShowDetail(false);
+  };
+
+  // Lọc cuộc hẹn theo ngày
   const selectedDateStr = selectedDate.toISOString().split('T')[0];
-  const filteredAppointments = fakeAppointments.filter(
+  const filteredAppointments = appointments.filter(
     (appt) => appt.date === selectedDateStr
   );
 
-  const hourWidth = 40; // px (smaller grid)
-  const timelineMinWidth = hourWidth * 25; // 25 hours
+  const hourWidth = 40;
+  const timelineMinWidth = hourWidth * 25;
   const rowHeight = 40;
   const minRows = 10;
   const timelineHeight = Math.max(filteredAppointments.length, minRows) * rowHeight;
 
+  // Hiện popup chi tiết khi click vào bar
+  const handleShowDetail = (index) => {
+    setDetailIndex(index);
+    setShowDetail(true);
+  };
+
+  const handleCloseDetail = () => {
+    setShowDetail(false);
+    setDetailIndex(null);
+  };
+
+  // Xoá cuộc hẹn
+  const handleDelete = (index) => {
+    const globalIndex = appointments.findIndex(
+      (appt) =>
+        appt.date === selectedDateStr &&
+        appt.name === filteredAppointments[index].name &&
+        appt.start === filteredAppointments[index].start &&
+        appt.end === filteredAppointments[index].end
+    );
+    if (globalIndex !== -1) {
+      const updated = [...appointments];
+      updated.splice(globalIndex, 1);
+      setAppointments(updated);
+      setShowDetail(false);
+    }
+  };
+
+  // Sửa cuộc hẹn
+  const handleEdit = (index) => {
+    setEditIndex(
+      appointments.findIndex(
+        (appt) =>
+          appt.date === selectedDateStr &&
+          appt.name === filteredAppointments[index].name &&
+          appt.start === filteredAppointments[index].start &&
+          appt.end === filteredAppointments[index].end
+      )
+    );
+    setFormData({
+      name: filteredAppointments[index].name,
+      start: filteredAppointments[index].start,
+      end: filteredAppointments[index].end,
+    });
+    setShowForm(true);
+    setShowDetail(false);
+  };
+
   return (
     <div
       style={{
-        background: 'linear-gradient(135deg, #f3e5f5, #e1f5fe)', // hologram background
+        background: 'linear-gradient(135deg, #f3e5f5, #e1f5fe)',
         borderRadius: '12px',
         boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
         color: '#333',
@@ -64,6 +173,7 @@ function Timeline({ selectedDate, appointments }) {
         minWidth: 0,
         overflow: 'hidden',
         padding: 0,
+        position: 'relative',
       }}
     >
       <div
@@ -74,16 +184,172 @@ function Timeline({ selectedDate, appointments }) {
           background: 'rgba(255,255,255,0.7)',
           borderTopLeftRadius: '12px',
           borderTopRightRadius: '12px',
-          textAlign: 'center', // center align header and date
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
         }}
       >
-        <h2 style={{ fontSize: '1.6rem', color: '#6a1b9a', fontWeight: 'bold', margin: 0, letterSpacing: '1px', textAlign: 'center' }}>
-          Timeline of Appointments
-        </h2>
-        <h3 style={{ margin: '0.2rem 0 0 0', color: '#4a148c', fontWeight: 400, fontSize: '1.1rem', letterSpacing: '0.5px', textAlign: 'center' }}>
-          {selectedDate.toDateString()}
-        </h3>
+        <div>
+          <h2 style={{ fontSize: '1.6rem', color: '#6a1b9a', fontWeight: 'bold', margin: 0, letterSpacing: '1px', textAlign: 'center' }}>
+            Timeline of Appointments
+          </h2>
+          <h3 style={{ margin: '0.2rem 0 0 0', color: '#4a148c', fontWeight: 400, fontSize: '1.1rem', letterSpacing: '0.5px', textAlign: 'center' }}>
+            {selectedDate.toDateString()}
+          </h3>
+        </div>
+        <button
+          style={{
+            padding: '0.5rem 1rem',
+            background: '#7e57c2',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            marginLeft: '1rem',
+          }}
+          onClick={handleOpenForm}
+        >
+          + Thêm cuộc hẹn
+        </button>
       </div>
+      {/* Form thêm/sửa cuộc hẹn */}
+      {showForm && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '15%',
+            left: '50%',
+            transform: 'translate(-50%, 0)',
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+            zIndex: 100,
+            minWidth: '320px',
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>{editIndex !== null ? 'Sửa cuộc hẹn' : 'Thêm cuộc hẹn'}</h3>
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '1rem' }}>
+              <input
+                type="text"
+                name="name"
+                placeholder="Tên cuộc hẹn"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                style={{ width: '100%', padding: '0.5rem' }}
+              />
+            </div>
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '8px' }}>
+              <input
+                type="time"
+                name="start"
+                value={formData.start}
+                onChange={handleChange}
+                required
+                style={{ width: '48%', padding: '0.5rem' }}
+              />
+              <input
+                type="time"
+                name="end"
+                value={formData.end}
+                onChange={handleChange}
+                required
+                style={{ width: '48%', padding: '0.5rem' }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <button type="button" onClick={handleCloseForm} style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '0.5rem 1rem' }}>
+                Hủy
+              </button>
+              <button type="submit" style={{ background: '#7e57c2', color: 'white', border: 'none', borderRadius: '6px', padding: '0.5rem 1rem' }}>
+                Lưu
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {/* Popup chi tiết cuộc hẹn */}
+      {showDetail && detailIndex !== null && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '20%',
+            left: '50%',
+            transform: 'translate(-50%, 0)',
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+            zIndex: 200,
+            minWidth: '320px',
+          }}
+        >
+          <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Chi tiết cuộc hẹn</h3>
+          <div style={{ marginBottom: '1rem' }}>
+            <b>Tên:</b> {filteredAppointments[detailIndex].name}
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <b>Bắt đầu:</b> {filteredAppointments[detailIndex].start}
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <b>Kết thúc:</b> {filteredAppointments[detailIndex].end}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+            <button
+              onClick={() => handleEdit(detailIndex)}
+              style={{
+                background: '#ffd54f',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.5rem 1rem',
+                color: '#6a1b9a',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                cursor: 'pointer',
+              }}
+            >
+              <span role="img" aria-label="edit">✏️</span> Sửa
+            </button>
+            <button
+              onClick={() => handleDelete(detailIndex)}
+              style={{
+                background: '#e57373',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.5rem 1rem',
+                color: 'white',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                cursor: 'pointer',
+              }}
+            >
+              <span role="img" aria-label="delete">🗑️</span> Xóa
+            </button>
+            <button
+              onClick={handleCloseDetail}
+              style={{
+                background: '#eee',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.5rem 1rem',
+                color: '#333',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+              }}
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
       <div
         style={{
           flex: 1,
@@ -93,7 +359,7 @@ function Timeline({ selectedDate, appointments }) {
           height: '100%',
           overflow: 'auto',
           display: 'flex',
-          background: 'rgba(255,255,255,0.85)', // keep small timeline grid white, but outer is hologram
+          background: 'rgba(255,255,255,0.85)',
           borderBottomLeftRadius: '12px',
           borderBottomRightRadius: '12px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
@@ -282,7 +548,10 @@ function Timeline({ selectedDate, appointments }) {
                       whiteSpace: 'nowrap',
                       boxShadow: '0 2px 6px 0 #b39ddb33',
                       transition: 'left 0.2s, width 0.2s',
+                      cursor: 'pointer',
                     }}
+                    onClick={() => handleShowDetail(index)}
+                    title={appt.name}
                   >
                     {appt.name}
                   </div>
