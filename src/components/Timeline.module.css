@@ -1,0 +1,215 @@
+.timelineContainer {
+  background: linear-gradient(135deg, #f3e5f5, #e1f5fe);
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  color: #333;
+  font-family: Arial, sans-serif;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+}
+.header {
+  padding: 1.2rem 1.5rem 0.5rem 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: rgba(255,255,255,0.7);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.title {
+  font-size: 1.6rem;
+  color: #6a1b9a;
+  font-weight: bold;
+  margin: 0;
+  letter-spacing: 1px;
+  text-align: center;
+}
+.date {
+  margin: 0.2rem 0 0 0;
+  color: #4a148c;
+  font-weight: 400;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.addButton {
+  padding: 0.5rem 1rem;
+  background: #7e57c2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-left: 1rem;
+}
+.formContainer {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 100;
+  min-width: 320px;
+}
+.inputGroup {
+  margin-bottom: 1rem;
+}
+.input {
+  width: 100%;
+  padding: 0.5rem;
+}
+.timeGroup {
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 8px;
+}
+.timeInput {
+  width: 48%;
+  padding: 0.5rem;
+}
+.buttonGroup {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+.cancelButton {
+  background: #eee;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+}
+.saveButton {
+  background: #7e57c2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+}
+.detailContainer {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 200;
+  min-width: 320px;
+}
+.detailButtonGroup {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.editButton {
+  background: #ffd54f;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: #6a1b9a;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.deleteButton {
+  background: #e57373;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: white;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+.closeButton {
+  background: #eee;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: #333;
+  font-weight: bold;
+  cursor: pointer;
+}
+.timeline {
+  flex: 1;
+  display: flex;
+  background: rgba(255,255,255,0.85);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  align-items: flex-start;
+}
+.appointmentLabels {
+  width: 120px;
+  min-width: 120px;
+  display: grid;
+  grid-template-rows: 20px repeat(10, 40px);
+  border-right: 1px solid #ddd;
+  background: rgba(255,255,255,0.95);
+  z-index: 1;
+  border-bottom-left-radius: 12px;
+  box-shadow: 2px 0 6px -4px #b39ddb1a;
+}
+.emptyCell {
+  height: 20px;
+  background: transparent;
+}
+.appointmentLabel {
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+  color: #4a148c;
+  border-bottom: 1px solid #eee;
+  background: rgba(255,255,255,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+}
+.timelineGrid {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: #fff;
+  border-radius: 0 0 12px 0;
+  border-left: none;
+  max-width: 100%;
+  box-shadow: -2px 0 6px -4px #b39ddb1a;
+  margin-top: 20px;
+}
+.appointmentBar {
+  position: absolute;
+  background: #ba68c8;
+  border-radius: 4px;
+  color: white;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: bold;
+  z-index: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px 0 #b39ddb33;
+  transition: left 0.2s, width 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

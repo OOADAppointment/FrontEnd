@@ -27,7 +27,7 @@ function Calendar({ onDateClick, appointments, username }) {
     }
 
     for (let day = new Date(startOfMonth); day <= endOfMonth; day.setDate(day.getDate() + 1)) {
-      const dayStr = day.toISOString().split('T')[0];
+const dayStr = day.toLocaleDateString('en-CA');
       const dayAppointments = appointments.filter(
         (appt) => appt.date === dayStr
       );

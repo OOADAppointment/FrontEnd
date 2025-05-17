@@ -1,238 +1,261 @@
 import { useState } from 'react';
+import styles from './Timeline.module.css';
 
-function Timeline({ selectedDate }) {
-  // Show all 25 hours (0-24)
+function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
   const hours = Array.from({ length: 25 }, (_, i) => i);
-
-  // Fake data for demonstration (covering many days in months 4-7, 2025)
-  const initialAppointments = [
-    // ...existing appointments...
-    { name: 'Meeting', start: '10:30', end: '12:45', date: '2025-04-01' },
-    { name: 'Lunch', start: '13:00', end: '15:50', date: '2025-04-01' },
-    { name: 'Workshop', start: '15:00', end: '17:00', date: '2025-04-02' },
-    { name: 'Late Task', start: '20:00', end: '23:00', date: '2025-04-02' },
-    { name: 'Night Shift', start: '22:00', end: '24:00', date: '2025-04-03' },
-    { name: 'Morning Brief', start: '08:00', end: '09:00', date: '2025-04-03' },
-    { name: 'Team Sync', start: '09:30', end: '10:30', date: '2025-04-04' },
-    { name: 'Design Review', start: '14:00', end: '15:00', date: '2025-04-04' },
-    { name: '1:1', start: '11:00', end: '11:30', date: '2025-05-05' },
-    { name: 'Wrap Up', start: '16:00', end: '17:00', date: '2025-05-05' },
-    { name: 'Planning', start: '09:00', end: '10:00', date: '2025-05-06' },
-    { name: 'Retrospective', start: '15:00', end: '16:00', date: '2025-05-06' },
-    { name: 'Demo', start: '13:00', end: '14:00', date: '2025-05-07' },
-    { name: 'Support', start: '10:00', end: '12:00', date: '2025-05-08' },
-    { name: 'Check-in', start: '09:00', end: '09:30', date: '2025-06-09' },
-    { name: 'Night Shift', start: '22:00', end: '24:00', date: '2025-06-10' },
-    { name: 'Sprint Start', start: '09:00', end: '10:00', date: '2025-06-11' },
-    { name: 'Code Review', start: '14:00', end: '15:30', date: '2025-06-12' },
-    { name: 'Brainstorm', start: '11:00', end: '12:00', date: '2025-06-13' },
-    { name: 'Release', start: '10:00', end: '11:00', date: '2025-07-01' },
-    { name: 'Hotfix', start: '15:00', end: '16:00', date: '2025-07-02' },
-    { name: 'All Hands', start: '09:00', end: '10:30', date: '2025-07-03' },
-    { name: 'Wrap Up', start: '16:00', end: '17:00', date: '2025-07-04' },
-    { name: 'Night Shift', start: '22:00', end: '24:00', date: '2025-07-05' },
-    { name: 'Morning Brief', start: '08:00', end: '09:00', date: '2025-07-06' },
-    { name: 'Team Sync', start: '09:30', end: '10:30', date: '2025-07-07' },
-    { name: 'Design Review', start: '14:00', end: '15:00', date: '2025-07-08' },
-  ];
-
-  // State quản lý danh sách cuộc hẹn
-  const [appointments, setAppointments] = useState(initialAppointments);
-
-  // State cho form thêm/sửa cuộc hẹn
+  const hourWidth = 40;
+  const minRows = 10;
+  const rowHeight = 40;
+  const timelineWidth = hourWidth * 24;
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    start: '',
-    end: '',
-  });
+  const [formData, setFormData] = useState({ name: '', start: '', end: '', members: '' });
   const [editIndex, setEditIndex] = useState(null);
-
-  // State cho popup chi tiết
   const [showDetail, setShowDetail] = useState(false);
   const [detailIndex, setDetailIndex] = useState(null);
+  const [error, setError] = useState('');
+  const [overlapInfo, setOverlapInfo] = useState(null);
+
+  const selectedDateStr = selectedDate.toLocaleDateString('en-CA');
+
+  // Chỉ hiển thị các lịch mà user là owner hoặc member
+  const filteredAppointments = appointments.filter(
+    (appt) =>
+      appt.date === selectedDateStr &&
+      (appt.owner === user || (appt.members && appt.members.includes(user)))
+  );
 
   const handleOpenForm = () => {
     setShowForm(true);
     setEditIndex(null);
-    setFormData({ name: '', start: '', end: '' });
+    setFormData({ name: '', start: '', end: '', members: '' });
+    setError('');
+    setOverlapInfo(null);
   };
-
   const handleCloseForm = () => {
     setShowForm(false);
     setEditIndex(null);
-    setFormData({ name: '', start: '', end: '' });
+    setFormData({ name: '', start: '', end: '', members: '' });
+    setError('');
+    setOverlapInfo(null);
+  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  // Kiểm tra trùng thời gian
+  const isTimeOverlap = (start1, end1, start2, end2) => {
+    const parse = (str) => {
+      const [h, m] = str.split(':').map(Number);
+      return h + (m ? m / 60 : 0);
+    };
+    const s1 = parse(start1), e1 = parse(end1);
+    const s2 = parse(start2), e2 = parse(end2);
+    return Math.max(s1, s2) < Math.min(e1, e2);
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
+  // Xử lý thêm/sửa cuộc hẹn
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
+    setOverlapInfo(null);
     if (!formData.name || !formData.start || !formData.end) return;
-    if (editIndex !== null) {
-      // Edit
-      const updated = [...appointments];
-      updated[editIndex] = {
-        ...updated[editIndex],
-        name: formData.name,
-        start: formData.start,
-        end: formData.end,
-        date: selectedDate.toISOString().split('T')[0],
-      };
-      setAppointments(updated);
-    } else {
-      // Add
-      setAppointments([
-        ...appointments,
-        {
+
+    // Chuẩn hóa danh sách members (loại bỏ rỗng, loại bỏ user chủ)
+    let membersArr = formData.members
+      .split(',')
+      .map((m) => m.trim())
+      .filter((m) => m && m !== user);
+
+    // Kiểm tra trùng thời gian với các lịch mà user là owner hoặc member
+    const overlapIdx = appointments.findIndex((appt, idx) => {
+      if (editIndex !== null && idx === editIndex) return false;
+      if (appt.date !== selectedDateStr) return false;
+      if (appt.owner === user || (appt.members && appt.members.includes(user))) {
+        return isTimeOverlap(formData.start, formData.end, appt.start, appt.end);
+      }
+      return false;
+    });
+
+    if (overlapIdx !== -1 && overlapIdx !== undefined) {
+      setOverlapInfo({
+        idx: overlapIdx,
+        appt: appointments[overlapIdx],
+      });
+      return;
+    }
+
+    // Kiểm tra đã có cuộc họp nhóm trùng (name, start, end, date, KHÔNG phải của user hiện tại)
+    const groupMeetingIdx = appointments.findIndex(
+      (appt) =>
+        appt.date === selectedDateStr &&
+        appt.name === formData.name &&
+        appt.start === formData.start &&
+        appt.end === formData.end &&
+        appt.owner !== user &&
+        (!appt.members || !appt.members.includes(user))
+    );
+
+    if (groupMeetingIdx !== -1) {
+      // Hỏi xác nhận tham gia
+      if (window.confirm('Đã có cuộc họp nhóm này. Bạn có muốn tham gia vào cuộc họp này không?')) {
+        let newAppointments = [...appointments];
+        const oldMembers = newAppointments[groupMeetingIdx].members || [];
+        if (!oldMembers.includes(user)) {
+          newAppointments[groupMeetingIdx] = {
+            ...newAppointments[groupMeetingIdx],
+            members: [...oldMembers, user],
+          };
+          onUpdateAppointments(newAppointments);
+        }
+        handleCloseForm();
+        setShowDetail(false);
+      } else {
+        // Nếu không đồng ý, tạo mới appointment cho user hiện tại
+        let newAppointments = [...appointments];
+        newAppointments.push({
+          owner: user,
           name: formData.name,
           start: formData.start,
           end: formData.end,
-          date: selectedDate.toISOString().split('T')[0],
-        },
-      ]);
+          date: selectedDateStr,
+          members: membersArr,
+        });
+        onUpdateAppointments(newAppointments);
+        handleCloseForm();
+        setShowDetail(false);
+      }
+      return;
     }
+
+    // Kiểm tra đã là chủ hoặc thành viên của cuộc hẹn này chưa
+    const sameEventIdx = appointments.findIndex(
+      (appt) =>
+        appt.date === selectedDateStr &&
+        appt.name === formData.name &&
+        appt.start === formData.start &&
+        appt.end === formData.end &&
+        (appt.owner === user || (appt.members && appt.members.includes(user)))
+    );
+    if (sameEventIdx !== -1) {
+      setError('Bạn đã tham gia cuộc hẹn này!');
+      return;
+    }
+
+    // Thêm mới
+    let newAppointments = [...appointments];
+    newAppointments.push({
+      owner: user,
+      name: formData.name,
+      start: formData.start,
+      end: formData.end,
+      date: selectedDateStr,
+      members: membersArr,
+    });
+    onUpdateAppointments(newAppointments);
     handleCloseForm();
     setShowDetail(false);
   };
 
-  // Lọc cuộc hẹn theo ngày
-  const selectedDateStr = selectedDate.toISOString().split('T')[0];
-  const filteredAppointments = appointments.filter(
-    (appt) => appt.date === selectedDateStr
-  );
+  // Thay thế cuộc hẹn cũ khi trùng thời gian
+  const handleReplaceOld = () => {
+    if (overlapInfo) {
+      let newAppointments = [...appointments];
+      newAppointments.splice(overlapInfo.idx, 1);
+      newAppointments.push({
+        owner: user,
+        name: formData.name,
+        start: formData.start,
+        end: formData.end,
+        date: selectedDateStr,
+        members: formData.members
+          .split(',')
+          .map((m) => m.trim())
+          .filter((m) => m && m !== user),
+      });
+      onUpdateAppointments(newAppointments);
+      setOverlapInfo(null);
+      handleCloseForm();
+      setShowDetail(false);
+    }
+  };
 
-  const hourWidth = 40;
-  const timelineMinWidth = hourWidth * 25;
-  const rowHeight = 40;
-  const minRows = 10;
-  const timelineHeight = Math.max(filteredAppointments.length, minRows) * rowHeight;
+  const handleChooseOtherTime = () => {
+    setOverlapInfo(null);
+    setError('');
+  };
 
-  // Hiện popup chi tiết khi click vào bar
   const handleShowDetail = (index) => {
     setDetailIndex(index);
     setShowDetail(true);
   };
-
   const handleCloseDetail = () => {
     setShowDetail(false);
     setDetailIndex(null);
   };
-
-  // Xoá cuộc hẹn
   const handleDelete = (index) => {
     const globalIndex = appointments.findIndex(
       (appt) =>
         appt.date === selectedDateStr &&
         appt.name === filteredAppointments[index].name &&
         appt.start === filteredAppointments[index].start &&
-        appt.end === filteredAppointments[index].end
+        appt.end === filteredAppointments[index].end &&
+        (appt.owner === user || (appt.members && appt.members.includes(user)))
     );
     if (globalIndex !== -1) {
       const updated = [...appointments];
       updated.splice(globalIndex, 1);
-      setAppointments(updated);
+      onUpdateAppointments(updated);
       setShowDetail(false);
     }
   };
-
-  // Sửa cuộc hẹn
   const handleEdit = (index) => {
-    setEditIndex(
-      appointments.findIndex(
-        (appt) =>
-          appt.date === selectedDateStr &&
-          appt.name === filteredAppointments[index].name &&
-          appt.start === filteredAppointments[index].start &&
-          appt.end === filteredAppointments[index].end
-      )
-    );
+    setEditIndex(index);
     setFormData({
       name: filteredAppointments[index].name,
       start: filteredAppointments[index].start,
       end: filteredAppointments[index].end,
+      members: (filteredAppointments[index].members || []).join(', '),
     });
     setShowForm(true);
     setShowDetail(false);
+    setError('');
+    setOverlapInfo(null);
   };
 
+  const timelineHeight = Math.max(filteredAppointments.length, minRows) * rowHeight;
+
   return (
-    <div
-      style={{
-        background: 'linear-gradient(135deg, #f3e5f5, #e1f5fe)',
-        borderRadius: '12px',
-        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
-        color: '#333',
-        fontFamily: 'Arial, sans-serif',
-        height: '100%',
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
-        overflow: 'hidden',
-        padding: 0,
-        position: 'relative',
-      }}
-    >
-      <div
-        style={{
-          padding: '1.2rem 1.5rem 0.5rem 1.5rem',
-          flex: '0 0 auto',
-          borderBottom: '1px solid #e0e0e0',
-          background: 'rgba(255,255,255,0.7)',
-          borderTopLeftRadius: '12px',
-          borderTopRightRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
+    <div className={styles.timelineContainer}>
+      <div className={styles.header}>
         <div>
-          <h2 style={{ fontSize: '1.6rem', color: '#6a1b9a', fontWeight: 'bold', margin: 0, letterSpacing: '1px', textAlign: 'center' }}>
-            Timeline of Appointments
-          </h2>
-          <h3 style={{ margin: '0.2rem 0 0 0', color: '#4a148c', fontWeight: 400, fontSize: '1.1rem', letterSpacing: '0.5px', textAlign: 'center' }}>
-            {selectedDate.toDateString()}
-          </h3>
+          <h2 className={styles.title}>Timeline of Appointments</h2>
+          <h3 className={styles.date}>{selectedDate.toDateString()}</h3>
         </div>
-        <button
-          style={{
-            padding: '0.5rem 1rem',
-            background: '#7e57c2',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            marginLeft: '1rem',
-          }}
-          onClick={handleOpenForm}
-        >
+        <button className={styles.addButton} onClick={handleOpenForm}>
           + Thêm cuộc hẹn
         </button>
       </div>
-      {/* Form thêm/sửa cuộc hẹn */}
       {showForm && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '15%',
-            left: '50%',
-            transform: 'translate(-50%, 0)',
-            background: 'white',
-            padding: '2rem',
-            borderRadius: '12px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-            zIndex: 100,
-            minWidth: '320px',
-          }}
-        >
-          <h3 style={{ marginTop: 0 }}>{editIndex !== null ? 'Sửa cuộc hẹn' : 'Thêm cuộc hẹn'}</h3>
+        <div className={styles.formContainer}>
+          <h3>{editIndex !== null ? 'Sửa cuộc hẹn' : 'Thêm cuộc hẹn'}</h3>
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '1rem' }}>
+            {error && <div style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
+            {overlapInfo && (
+              <div style={{ color: 'red', marginBottom: 8 }}>
+                <div>
+                  Thời gian này bị trùng với cuộc hẹn:
+                  <br />
+                  <b>{overlapInfo.appt.name}</b> ({overlapInfo.appt.start} - {overlapInfo.appt.end})
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <button type="button" onClick={handleReplaceOld} style={{ marginRight: 8 }}>
+                    Thay thế cuộc hẹn cũ
+                  </button>
+                  <button type="button" onClick={handleChooseOtherTime}>
+                    Chọn thời gian khác
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className={styles.inputGroup}>
               <input
                 type="text"
                 name="name"
@@ -240,17 +263,17 @@ function Timeline({ selectedDate }) {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                style={{ width: '100%', padding: '0.5rem' }}
+                className={styles.input}
               />
             </div>
-            <div style={{ marginBottom: '1rem', display: 'flex', gap: '8px' }}>
+            <div className={styles.timeGroup}>
               <input
                 type="time"
                 name="start"
                 value={formData.start}
                 onChange={handleChange}
                 required
-                style={{ width: '48%', padding: '0.5rem' }}
+                className={styles.timeInput}
               />
               <input
                 type="time"
@@ -258,306 +281,128 @@ function Timeline({ selectedDate }) {
                 value={formData.end}
                 onChange={handleChange}
                 required
-                style={{ width: '48%', padding: '0.5rem' }}
+                className={styles.timeInput}
               />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              <button type="button" onClick={handleCloseForm} style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '0.5rem 1rem' }}>
+            <div className={styles.inputGroup}>
+              <input
+                type="text"
+                name="members"
+                placeholder="Thành viên (cách nhau bởi dấu phẩy, không gồm bạn)"
+                value={formData.members}
+                onChange={handleChange}
+                className={styles.input}
+              />
+            </div>
+            <div className={styles.buttonGroup}>
+              <button type="button" onClick={handleCloseForm} className={styles.cancelButton}>
                 Hủy
               </button>
-              <button type="submit" style={{ background: '#7e57c2', color: 'white', border: 'none', borderRadius: '6px', padding: '0.5rem 1rem' }}>
+              <button type="submit" className={styles.saveButton}>
                 Lưu
               </button>
             </div>
           </form>
         </div>
       )}
-      {/* Popup chi tiết cuộc hẹn */}
       {showDetail && detailIndex !== null && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '20%',
-            left: '50%',
-            transform: 'translate(-50%, 0)',
-            background: 'white',
-            padding: '2rem',
-            borderRadius: '12px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-            zIndex: 200,
-            minWidth: '320px',
-          }}
-        >
-          <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Chi tiết cuộc hẹn</h3>
-          <div style={{ marginBottom: '1rem' }}>
-            <b>Tên:</b> {filteredAppointments[detailIndex].name}
-          </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <b>Bắt đầu:</b> {filteredAppointments[detailIndex].start}
-          </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <b>Kết thúc:</b> {filteredAppointments[detailIndex].end}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
-            <button
-              onClick={() => handleEdit(detailIndex)}
-              style={{
-                background: '#ffd54f',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '0.5rem 1rem',
-                color: '#6a1b9a',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                cursor: 'pointer',
-              }}
-            >
+        <div className={styles.detailContainer}>
+          <h3>Chi tiết cuộc hẹn</h3>
+          <div><b>Tên:</b> {filteredAppointments[detailIndex].name}</div>
+          <div><b>Bắt đầu:</b> {filteredAppointments[detailIndex].start}</div>
+          <div><b>Kết thúc:</b> {filteredAppointments[detailIndex].end}</div>
+          <div><b>Chủ cuộc hẹn:</b> {filteredAppointments[detailIndex].owner}</div>
+          <div><b>Thành viên:</b> {(filteredAppointments[detailIndex].members || []).join(', ') || 'Không có'}</div>
+          <div className={styles.detailButtonGroup}>
+            <button onClick={() => handleEdit(detailIndex)} className={styles.editButton}>
               <span role="img" aria-label="edit">✏️</span> Sửa
             </button>
-            <button
-              onClick={() => handleDelete(detailIndex)}
-              style={{
-                background: '#e57373',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '0.5rem 1rem',
-                color: 'white',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                cursor: 'pointer',
-              }}
-            >
+            <button onClick={() => handleDelete(detailIndex)} className={styles.deleteButton}>
               <span role="img" aria-label="delete">🗑️</span> Xóa
             </button>
-            <button
-              onClick={handleCloseDetail}
-              style={{
-                background: '#eee',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '0.5rem 1rem',
-                color: '#333',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-              }}
-            >
+            <button onClick={handleCloseDetail} className={styles.closeButton}>
               Đóng
             </button>
           </div>
         </div>
       )}
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          minWidth: 0,
-          width: '100%',
-          height: '100%',
-          overflow: 'auto',
-          display: 'flex',
-          background: 'rgba(255,255,255,0.85)',
-          borderBottomLeftRadius: '12px',
-          borderBottomRightRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-          alignItems: 'flex-start',
-        }}
-      >
-        {/* Appointment labels */}
-        <div
-          style={{
-            width: '120px',
-            minWidth: '120px',
-            display: 'grid',
-            gridTemplateRows: `20px repeat(${minRows}, ${rowHeight}px)`,
-            borderRight: '1px solid #ddd',
-            background: 'rgba(255,255,255,0.95)',
-            zIndex: 1,
-            borderBottomLeftRadius: '12px',
-            boxShadow: '2px 0 6px -4px #b39ddb1a',
-            height: timelineHeight + 20,
-          }}
-        >
-          {/* Empty cell for hour label row */}
-          <div style={{ height: '20px', background: 'transparent' }} />
+      <div className={styles.timeline}>
+        <div className={styles.appointmentLabels}>
+          <div className={styles.emptyCell} />
           {Array.from({ length: minRows }).map((_, index) => (
-            <div
-              key={index}
-              style={{
-                height: `${rowHeight}px`,
-                lineHeight: `${rowHeight}px`,
-                textAlign: 'center',
-                fontWeight: filteredAppointments[index] ? 'bold' : 'normal',
-                color: '#4a148c',
-                borderBottom: '1px solid #eee',
-                background: filteredAppointments[index] ? 'rgba(186,104,200,0.08)' : 'rgba(255,255,255,0.8)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 0,
-                fontSize: '1rem',
-                letterSpacing: '0.5px',
-              }}
-            >
+            <div key={index} className={styles.appointmentLabel}>
               {filteredAppointments[index]?.name || ''}
             </div>
           ))}
         </div>
-        {/* Timeline grid and scrollable area */}
         <div
+          className={styles.timelineGrid}
           style={{
-            flex: 1,
-            minWidth: 0,
-            position: 'relative',
-            background: '#fff',
-            borderRadius: '0 0 12px 0',
-            borderLeft: 'none',
-            maxWidth: '100%',
             height: timelineHeight,
-            boxShadow: '-2px 0 6px -4px #b39ddb1a',
+            width: timelineWidth,
+            minWidth: timelineWidth,
+            overflowX: 'auto',
+            position: 'relative'
           }}
         >
-          {/* Hour labels ON vertical lines */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: `${timelineMinWidth}px`,
-              height: '20px',
-              zIndex: 4,
-              pointerEvents: 'none',
-            }}
-          >
-            {hours.map((hour) => (
+          {/* Grid giờ dọc */}
+          {hours.map((hour) => (
+            <div
+              key={hour}
+              className={styles.hourLine}
+              style={{
+                position: 'absolute',
+                left: `${hour * hourWidth}px`,
+                top: 0,
+                width: '1px',
+                height: '100%',
+                background: '#e0e0e0',
+                zIndex: 1,
+              }}
+            />
+          ))}
+          {/* Label giờ */}
+          {hours.map((hour) => (
+            <div
+              key={'label-' + hour}
+              className={styles.hourLabel}
+              style={{
+                position: 'absolute',
+                left: `${hour * hourWidth}px`,
+                top: '0',
+                width: `${hourWidth}px`,
+                textAlign: 'center',
+                color: '#4a148c',
+                fontWeight: 'bold',
+                fontSize: '0.8rem',
+                zIndex: 2,
+              }}
+            >
+              {hour}
+            </div>
+          ))}
+          {/* Các bar cuộc hẹn */}
+          {filteredAppointments.map((appt, index) => {
+            const parseHour = (str) => {
+              const [h, m] = str.split(':').map(Number);
+              return h + (m ? m / 60 : 0);
+            };
+            const startHour = parseHour(appt.start);
+            const endHour = parseHour(appt.end);
+            const left = `${startHour * hourWidth}px`;
+            const width = `${Math.max(0, (endHour - startHour) * hourWidth)}px`;
+            return (
               <div
-                key={hour}
-                style={{
-                  position: 'absolute',
-                  left: `${hour * hourWidth}px`,
-                  top: 0,
-                  width: '1px',
-                  height: '20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  color: '#4a148c',
-                  fontWeight: 'bold',
-                  fontSize: '0.8rem',
-                  userSelect: 'none',
-                  pointerEvents: 'none',
-                  zIndex: 4,
-                  transform: 'translateX(-50%)',
-                }}
+                key={index}
+                className={styles.appointmentBar}
+                style={{ left, width, top: `${index * rowHeight}px`, height: `${rowHeight}px` }}
+                onClick={() => handleShowDetail(index)}
+                title={appt.name}
               >
-                <span style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: '50%',
-                  transform: 'translate(-50%, 0)',
-                  whiteSpace: 'nowrap',
-                  background: 'rgba(255,255,255,0.95)',
-                  padding: '0 2px',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  color: '#4a148c',
-                  zIndex: 5,
-                  borderRadius: '4px',
-                }}>
-                  {hour}
-                </span>
+                {appt.name}
               </div>
-            ))}
-          </div>
-          {/* Gantt grid and rows */}
-          <div
-            style={{
-              position: 'relative',
-              minWidth: `${timelineMinWidth}px`,
-              background: 'rgba(255,255,255,0.8)',
-              height: timelineHeight,
-              maxWidth: '100%',
-              marginTop: '20px',
-              borderBottomRightRadius: '12px',
-            }}
-          >
-            {/* Vertical grid lines */}
-            {hours.map((hour) => (
-              <div
-                key={hour}
-                style={{
-                  position: 'absolute',
-                  left: `${hour * hourWidth}px`,
-                  top: 0,
-                  width: '1px',
-                  height: '100%',
-                  background: '#e0e0e0',
-                  zIndex: 1,
-                }}
-              />
-            ))}
-            {/* Horizontal grid lines */}
-            {Array.from({ length: Math.max(filteredAppointments.length, minRows) + 1 }, (_, i) => (
-              <div
-                key={i}
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: `${i * rowHeight}px`,
-                  width: '100%',
-                  height: '1px',
-                  background: '#e0e0e0',
-                  zIndex: 1,
-                }}
-              />
-            ))}
-            {/* Gantt bars */}
-            {filteredAppointments.length > 0 &&
-              filteredAppointments.map((appt, index) => {
-                // Parse start and end time as float hour (e.g. 10:30 -> 10.5)
-                const parseHour = (str) => {
-                  const [h, m] = str.split(':').map(Number);
-                  return h + (m ? m / 60 : 0);
-                };
-                const startHour = parseHour(appt.start);
-                const endHour = parseHour(appt.end);
-                const left = `${startHour * hourWidth}px`;
-                const width = `${(endHour - startHour) * hourWidth}px`;
-                return (
-                  <div
-                    key={index}
-                    style={{
-                      position: 'absolute',
-                      top: `${index * rowHeight}px`,
-                      left,
-                      width,
-                      height: `${rowHeight}px`,
-                      background: '#ba68c8',
-                      borderRadius: '4px',
-                      color: 'white',
-                      textAlign: 'center',
-                      lineHeight: `${rowHeight}px`,
-                      fontSize: '0.9rem',
-                      fontWeight: 'bold',
-                      zIndex: 2,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 2px 6px 0 #b39ddb33',
-                      transition: 'left 0.2s, width 0.2s',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => handleShowDetail(index)}
-                    title={appt.name}
-                  >
-                    {appt.name}
-                  </div>
-                );
-              })}
-          </div>
+            );
+          })}
         </div>
       </div>
     </div>
