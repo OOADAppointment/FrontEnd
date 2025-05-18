@@ -41,3 +41,11 @@ export async function deleteAppointment(id) {
   }
   return response.json();
 }
+
+export async function joinGroupMeeting({ username, id }) {
+  return fetch(`${BASE_URL}/join-group-meeting`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, id }),
+  }).then(res => res.json());
+}

@@ -4,6 +4,7 @@ import {
   createAppointment,
   updateAppointment,
   deleteAppointment as apiDeleteAppointment,
+  joinGroupMeeting, // Bạn cần thêm hàm này trong services/appointment.js
 } from '../services/appointment';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -32,6 +33,7 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
   const [detailIndex, setDetailIndex] = useState(null);
   const [error, setError] = useState('');
   const [overlapInfo, setOverlapInfo] = useState(null);
+  const [groupMeetingPrompt, setGroupMeetingPrompt] = useState(null);
 
   const selectedDateStr = selectedDate.toLocaleDateString('en-CA');
 
@@ -80,6 +82,7 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
     setReminderTimes(['']);
     setError('');
     setOverlapInfo(null);
+    setGroupMeetingPrompt(null);
   };
   const handleCloseForm = () => {
     setShowForm(false);
@@ -97,6 +100,7 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
     setReminderTimes(['']);
     setError('');
     setOverlapInfo(null);
+    setGroupMeetingPrompt(null);
   };
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -122,6 +126,7 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
     e.preventDefault();
     setError('');
     setOverlapInfo(null);
+    setGroupMeetingPrompt(null);
     if (!formData.name || !formData.date || !formData.start || !formData.end) return;
 
     let membersArr = [];
@@ -166,11 +171,23 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
     };
 
     try {
-      if (editIndex !== null && formData.id) {
-        await updateAppointment(formData.id, appointmentData);
-      } else {
-        await createAppointment(appointmentData);
+      // Gọi API tạo cuộc hẹn
+      const res = await createAppointment(appointmentData);
+
+      // Nếu là họp nhóm và API trả về status GROUP_MEETING_EXISTS
+      if (res && res.status === 'GROUP_MEETING_EXISTS' && res.appointmentId) {
+        setShowForm(false);
+        setGroupMeetingPrompt({
+          appointmentId: res.appointmentId,
+          title: res.title,
+          location: res.location,
+          startTime: res.startTime,
+          endTime: res.endTime,
+          participants: res.participants || [],
+        });
+        return;
       }
+
       if (typeof onUpdateAppointments === 'function') {
         onUpdateAppointments();
       }
@@ -178,6 +195,26 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
       setShowDetail(false);
     } catch (err) {
       setError('Lỗi khi lưu cuộc hẹn!');
+    }
+  };
+
+  // Xác nhận tham gia họp nhóm
+  const handleJoinGroupMeeting = async () => {
+    if (!groupMeetingPrompt) return;
+    try {
+      await joinGroupMeeting({
+        username: user,
+        id: groupMeetingPrompt.appointmentId,
+      });
+      toast.success('Bạn đã tham gia cuộc họp nhóm!');
+      setGroupMeetingPrompt(null);
+      if (typeof onUpdateAppointments === 'function') {
+        onUpdateAppointments();
+      }
+      handleCloseForm();
+      setShowDetail(false);
+    } catch (err) {
+      setError('Lỗi khi tham gia cuộc họp nhóm!');
     }
   };
 
@@ -261,6 +298,7 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
     setShowDetail(false);
     setError('');
     setOverlapInfo(null);
+    setGroupMeetingPrompt(null);
   };
 
   const timelineHeight = Math.max(filteredAppointments.length, minRows) * rowHeight;
@@ -276,6 +314,24 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
           + Thêm cuộc hẹn
         </button>
       </div>
+      {groupMeetingPrompt && (
+        <div className={styles.formContainer} style={{ background: '#fffbe7', border: '1px solid #ffb300', marginBottom: 16 }}>
+          <h3>Đã tồn tại cuộc họp nhóm này</h3>
+          <div>
+            <b>{groupMeetingPrompt.title}</b> ({groupMeetingPrompt.startTime.slice(11, 16)} - {groupMeetingPrompt.endTime.slice(11, 16)})<br />
+            Địa điểm: {groupMeetingPrompt.location}<br />
+            Thành viên: {groupMeetingPrompt.participants.join(', ')}
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <button onClick={handleJoinGroupMeeting} style={{ marginRight: 8 }}>
+              Tham gia cuộc họp nhóm này
+            </button>
+            <button onClick={() => setGroupMeetingPrompt(null)}>
+              Hủy
+            </button>
+          </div>
+        </div>
+      )}
       {showForm && (
         <div className={styles.formContainer}>
           <h3>{editIndex !== null ? 'Sửa cuộc hẹn' : 'Thêm cuộc hẹn'}</h3>
