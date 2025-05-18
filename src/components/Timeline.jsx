@@ -4,7 +4,7 @@ import {
   createAppointment,
   updateAppointment,
   deleteAppointment as apiDeleteAppointment,
-  joinGroupMeeting, // Bạn cần thêm hàm này trong services/appointment.js
+  joinGroupMeeting,
 } from '../services/appointment';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -171,23 +171,26 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
     };
 
     try {
-      // Gọi API tạo cuộc hẹn
-      const res = await createAppointment(appointmentData);
-
-      // Nếu là họp nhóm và API trả về status GROUP_MEETING_EXISTS
-      if (res && res.status === 'GROUP_MEETING_EXISTS' && res.appointmentId) {
-        setShowForm(false);
-        setGroupMeetingPrompt({
-          appointmentId: res.appointmentId,
-          title: res.title,
-          location: res.location,
-          startTime: res.startTime,
-          endTime: res.endTime,
-          participants: res.participants || [],
-        });
-        return;
+      if (editIndex !== null && formData.id) {
+        // Đang sửa
+        await updateAppointment(formData.id, appointmentData);
+      } else {
+        // Đang thêm mới
+        const res = await createAppointment(appointmentData);
+        // Nếu là họp nhóm và API trả về status GROUP_MEETING_EXISTS
+        if (res && res.status === 'GROUP_MEETING_EXISTS' && res.appointmentId) {
+          setShowForm(false);
+          setGroupMeetingPrompt({
+            appointmentId: res.appointmentId,
+            title: res.title,
+            location: res.location,
+            startTime: res.startTime,
+            endTime: res.endTime,
+            participants: res.participants || [],
+          });
+          return;
+        }
       }
-
       if (typeof onUpdateAppointments === 'function') {
         onUpdateAppointments();
       }
@@ -326,7 +329,10 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
             <button onClick={handleJoinGroupMeeting} style={{ marginRight: 8 }}>
               Tham gia cuộc họp nhóm này
             </button>
-            <button onClick={() => setGroupMeetingPrompt(null)}>
+            <button onClick={() => {
+              setGroupMeetingPrompt(null);
+              setShowForm(true); // Mở lại form tạo mới nếu muốn
+            }}>
               Hủy
             </button>
           </div>
