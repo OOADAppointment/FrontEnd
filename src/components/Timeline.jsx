@@ -1,14 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './Timeline.module.css';
+import {
+  createAppointment,
+  updateAppointment,
+  deleteAppointment as apiDeleteAppointment,
+} from '../services/appointment';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
   const hours = Array.from({ length: 25 }, (_, i) => i);
   const hourWidth = 40;
   const minRows = 10;
   const rowHeight = 40;
+  const labelHeight = 28;
   const timelineWidth = hourWidth * 24;
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ name: '', start: '', end: '', members: '' });
+  const [formData, setFormData] = useState({
+    id: null,
+    name: '',
+    location: '',
+    date: '',
+    start: '',
+    end: '',
+    isGroupMeeting: false,
+    members: ''
+  });
+  const [reminderTimes, setReminderTimes] = useState(['']);
   const [editIndex, setEditIndex] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [detailIndex, setDetailIndex] = useState(null);
@@ -17,28 +35,76 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
 
   const selectedDateStr = selectedDate.toLocaleDateString('en-CA');
 
-  // Chỉ hiển thị các lịch mà user là owner hoặc member
-  const filteredAppointments = appointments.filter(
-    (appt) =>
-      appt.date === selectedDateStr &&
-      (appt.owner === user || (appt.members && appt.members.includes(user)))
-  );
+  // Hiển thị các lịch của ngày đang chọn
+  const filteredAppointments = Array.isArray(appointments)
+    ? appointments.filter(
+        (appt) =>
+          appt.date === selectedDateStr &&
+          (appt.owner === user || (Array.isArray(appt.members) && appt.members.includes(user)))
+      )
+    : [];
+
+  // Nhắc nhở bằng toast nếu đến thời gian reminder
+  useEffect(() => {
+    const now = new Date();
+    if (Array.isArray(appointments)) {
+      appointments.forEach(appt => {
+        if (appt.reminderTimes && Array.isArray(appt.reminderTimes)) {
+          appt.reminderTimes.forEach(reminder => {
+            const reminderDate = new Date(reminder);
+            if (
+              reminderDate > now &&
+              reminderDate - now < 60000
+            ) {
+              toast.info(`Sắp đến lịch: ${appt.name} lúc ${appt.start}`);
+            }
+          });
+        }
+      });
+    }
+  }, [appointments]);
 
   const handleOpenForm = () => {
     setShowForm(true);
     setEditIndex(null);
-    setFormData({ name: '', start: '', end: '', members: '' });
+    setFormData({
+      id: null,
+      name: '',
+      location: '',
+      date: '',
+      start: '',
+      end: '',
+      isGroupMeeting: false,
+      members: ''
+    });
+    setReminderTimes(['']);
     setError('');
     setOverlapInfo(null);
   };
   const handleCloseForm = () => {
     setShowForm(false);
     setEditIndex(null);
-    setFormData({ name: '', start: '', end: '', members: '' });
+    setFormData({
+      id: null,
+      name: '',
+      location: '',
+      date: '',
+      start: '',
+      end: '',
+      isGroupMeeting: false,
+      members: ''
+    });
+    setReminderTimes(['']);
     setError('');
     setOverlapInfo(null);
   };
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
 
   // Kiểm tra trùng thời gian
   const isTimeOverlap = (start1, end1, start2, end2) => {
@@ -52,27 +118,33 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
   };
 
   // Xử lý thêm/sửa cuộc hẹn
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setOverlapInfo(null);
-    if (!formData.name || !formData.start || !formData.end) return;
+    if (!formData.name || !formData.date || !formData.start || !formData.end) return;
 
-    // Chuẩn hóa danh sách members (loại bỏ rỗng, loại bỏ user chủ)
-    let membersArr = formData.members
-      .split(',')
-      .map((m) => m.trim())
-      .filter((m) => m && m !== user);
+    let membersArr = [];
+    if (formData.isGroupMeeting) {
+      membersArr = formData.members
+        .split(',')
+        .map((m) => m.trim())
+        .filter((m) => m && m !== user);
+    }
+
+    const reminderArr = reminderTimes.filter(Boolean);
 
     // Kiểm tra trùng thời gian với các lịch mà user là owner hoặc member
-    const overlapIdx = appointments.findIndex((appt, idx) => {
-      if (editIndex !== null && idx === editIndex) return false;
-      if (appt.date !== selectedDateStr) return false;
-      if (appt.owner === user || (appt.members && appt.members.includes(user))) {
-        return isTimeOverlap(formData.start, formData.end, appt.start, appt.end);
-      }
-      return false;
-    });
+    const overlapIdx = Array.isArray(appointments)
+      ? appointments.findIndex((appt, idx) => {
+          if (editIndex !== null && appt.id === formData.id) return false;
+          if (appt.date !== formData.date) return false;
+          if (appt.owner === user || (Array.isArray(appt.members) && appt.members.includes(user))) {
+            return isTimeOverlap(formData.start, formData.end, appt.start, appt.end);
+          }
+          return false;
+        })
+      : -1;
 
     if (overlapIdx !== -1 && overlapIdx !== undefined) {
       setOverlapInfo({
@@ -82,98 +154,66 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
       return;
     }
 
-    // Kiểm tra đã có cuộc họp nhóm trùng (name, start, end, date, KHÔNG phải của user hiện tại)
-    const groupMeetingIdx = appointments.findIndex(
-      (appt) =>
-        appt.date === selectedDateStr &&
-        appt.name === formData.name &&
-        appt.start === formData.start &&
-        appt.end === formData.end &&
-        appt.owner !== user &&
-        (!appt.members || !appt.members.includes(user))
-    );
-
-    if (groupMeetingIdx !== -1) {
-      // Hỏi xác nhận tham gia
-      if (window.confirm('Đã có cuộc họp nhóm này. Bạn có muốn tham gia vào cuộc họp này không?')) {
-        let newAppointments = [...appointments];
-        const oldMembers = newAppointments[groupMeetingIdx].members || [];
-        if (!oldMembers.includes(user)) {
-          newAppointments[groupMeetingIdx] = {
-            ...newAppointments[groupMeetingIdx],
-            members: [...oldMembers, user],
-          };
-          onUpdateAppointments(newAppointments);
-        }
-        handleCloseForm();
-        setShowDetail(false);
-      } else {
-        // Nếu không đồng ý, tạo mới appointment cho user hiện tại
-        let newAppointments = [...appointments];
-        newAppointments.push({
-          owner: user,
-          name: formData.name,
-          start: formData.start,
-          end: formData.end,
-          date: selectedDateStr,
-          members: membersArr,
-        });
-        onUpdateAppointments(newAppointments);
-        handleCloseForm();
-        setShowDetail(false);
-      }
-      return;
-    }
-
-    // Kiểm tra đã là chủ hoặc thành viên của cuộc hẹn này chưa
-    const sameEventIdx = appointments.findIndex(
-      (appt) =>
-        appt.date === selectedDateStr &&
-        appt.name === formData.name &&
-        appt.start === formData.start &&
-        appt.end === formData.end &&
-        (appt.owner === user || (appt.members && appt.members.includes(user)))
-    );
-    if (sameEventIdx !== -1) {
-      setError('Bạn đã tham gia cuộc hẹn này!');
-      return;
-    }
-
-    // Thêm mới
-    let newAppointments = [...appointments];
-    newAppointments.push({
-      owner: user,
-      name: formData.name,
-      start: formData.start,
-      end: formData.end,
-      date: selectedDateStr,
+    const appointmentData = {
+      title: formData.name,
+      location: formData.location,
+      startTime: `${formData.date}T${formData.start}:00`,
+      endTime: `${formData.date}T${formData.end}:00`,
+      isGroupMeeting: formData.isGroupMeeting,
       members: membersArr,
-    });
-    onUpdateAppointments(newAppointments);
-    handleCloseForm();
-    setShowDetail(false);
+      owner: user,
+      reminderTimes: reminderArr
+    };
+
+    try {
+      if (editIndex !== null && formData.id) {
+        await updateAppointment(formData.id, appointmentData);
+      } else {
+        await createAppointment(appointmentData);
+      }
+      if (typeof onUpdateAppointments === 'function') {
+        onUpdateAppointments();
+      }
+      handleCloseForm();
+      setShowDetail(false);
+    } catch (err) {
+      setError('Lỗi khi lưu cuộc hẹn!');
+    }
   };
 
   // Thay thế cuộc hẹn cũ khi trùng thời gian
-  const handleReplaceOld = () => {
+  const handleReplaceOld = async () => {
     if (overlapInfo) {
-      let newAppointments = [...appointments];
-      newAppointments.splice(overlapInfo.idx, 1);
-      newAppointments.push({
-        owner: user,
-        name: formData.name,
-        start: formData.start,
-        end: formData.end,
-        date: selectedDateStr,
-        members: formData.members
+      let membersArr = [];
+      if (formData.isGroupMeeting) {
+        membersArr = formData.members
           .split(',')
           .map((m) => m.trim())
-          .filter((m) => m && m !== user),
-      });
-      onUpdateAppointments(newAppointments);
-      setOverlapInfo(null);
-      handleCloseForm();
-      setShowDetail(false);
+          .filter((m) => m && m !== user);
+      }
+      const reminderArr = reminderTimes.filter(Boolean);
+      const appointmentData = {
+        title: formData.name,
+        location: formData.location,
+        startTime: `${formData.date}T${formData.start}:00`,
+        endTime: `${formData.date}T${formData.end}:00`,
+        isGroupMeeting: formData.isGroupMeeting,
+        members: membersArr,
+        owner: user,
+        reminderTimes: reminderArr
+      };
+      try {
+        await apiDeleteAppointment(overlapInfo.appt.id);
+        await createAppointment(appointmentData);
+        if (typeof onUpdateAppointments === 'function') {
+          onUpdateAppointments();
+        }
+        setOverlapInfo(null);
+        handleCloseForm();
+        setShowDetail(false);
+      } catch (err) {
+        setError('Lỗi khi thay thế cuộc hẹn!');
+      }
     }
   };
 
@@ -190,30 +230,33 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
     setShowDetail(false);
     setDetailIndex(null);
   };
-  const handleDelete = (index) => {
-    const globalIndex = appointments.findIndex(
-      (appt) =>
-        appt.date === selectedDateStr &&
-        appt.name === filteredAppointments[index].name &&
-        appt.start === filteredAppointments[index].start &&
-        appt.end === filteredAppointments[index].end &&
-        (appt.owner === user || (appt.members && appt.members.includes(user)))
-    );
-    if (globalIndex !== -1) {
-      const updated = [...appointments];
-      updated.splice(globalIndex, 1);
-      onUpdateAppointments(updated);
+  const handleDelete = async (index) => {
+    const appt = filteredAppointments[index];
+    if (!appt.id) return;
+    try {
+      await apiDeleteAppointment(appt.id);
+      if (typeof onUpdateAppointments === 'function') {
+        onUpdateAppointments();
+      }
       setShowDetail(false);
+    } catch (err) {
+      setError('Lỗi khi xóa cuộc hẹn!');
     }
   };
   const handleEdit = (index) => {
+    const appt = filteredAppointments[index];
     setEditIndex(index);
     setFormData({
-      name: filteredAppointments[index].name,
-      start: filteredAppointments[index].start,
-      end: filteredAppointments[index].end,
-      members: (filteredAppointments[index].members || []).join(', '),
+      id: appt.id,
+      name: appt.name,
+      location: appt.location || '',
+      date: appt.date,
+      start: appt.start,
+      end: appt.end,
+      isGroupMeeting: !!appt.isGroupMeeting,
+      members: (appt.members || []).join(', ')
     });
+    setReminderTimes(appt.reminderTimes && appt.reminderTimes.length ? appt.reminderTimes : ['']);
     setShowForm(true);
     setShowDetail(false);
     setError('');
@@ -266,6 +309,26 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
                 className={styles.input}
               />
             </div>
+            <div className={styles.inputGroup}>
+              <input
+                type="text"
+                name="location"
+                placeholder="Địa điểm"
+                value={formData.location}
+                onChange={handleChange}
+                className={styles.input}
+              />
+            </div>
+            <div className={styles.inputGroup}>
+              <input
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                required
+                className={styles.input}
+              />
+            </div>
             <div className={styles.timeGroup}>
               <input
                 type="time"
@@ -285,14 +348,52 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
               />
             </div>
             <div className={styles.inputGroup}>
-              <input
-                type="text"
-                name="members"
-                placeholder="Thành viên (cách nhau bởi dấu phẩy, không gồm bạn)"
-                value={formData.members}
-                onChange={handleChange}
-                className={styles.input}
-              />
+              <label>
+                <input
+                  type="checkbox"
+                  name="isGroupMeeting"
+                  checked={formData.isGroupMeeting}
+                  onChange={handleChange}
+                />{' '}
+                Cuộc họp nhóm
+              </label>
+            </div>
+            {formData.isGroupMeeting && (
+              <div className={styles.inputGroup}>
+                <input
+                  type="text"
+                  name="members"
+                  placeholder="Thành viên (username, cách nhau bởi dấu phẩy, không gồm bạn)"
+                  value={formData.members}
+                  onChange={handleChange}
+                  className={styles.input}
+                />
+              </div>
+            )}
+            <div className={styles.inputGroup}>
+              <label>Nhắc nhở:</label>
+              {reminderTimes.map((reminder, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                  <input
+                    type="datetime-local"
+                    value={reminder}
+                    onChange={e => {
+                      const arr = [...reminderTimes];
+                      arr[idx] = e.target.value;
+                      setReminderTimes(arr);
+                    }}
+                    className={styles.input}
+                  />
+                  {reminderTimes.length > 1 && (
+                    <button type="button" onClick={() => {
+                      setReminderTimes(reminderTimes.filter((_, i) => i !== idx));
+                    }} style={{ marginLeft: 4 }}>X</button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={() => setReminderTimes([...reminderTimes, ''])}>
+                + Thêm nhắc nhở
+              </button>
             </div>
             <div className={styles.buttonGroup}>
               <button type="button" onClick={handleCloseForm} className={styles.cancelButton}>
@@ -309,28 +410,37 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
         <div className={styles.detailContainer}>
           <h3>Chi tiết cuộc hẹn</h3>
           <div><b>Tên:</b> {filteredAppointments[detailIndex].name}</div>
+          <div><b>Địa điểm:</b> {filteredAppointments[detailIndex].location || 'Không có'}</div>
+          <div><b>Ngày:</b> {filteredAppointments[detailIndex].date}</div>
           <div><b>Bắt đầu:</b> {filteredAppointments[detailIndex].start}</div>
           <div><b>Kết thúc:</b> {filteredAppointments[detailIndex].end}</div>
           <div><b>Chủ cuộc hẹn:</b> {filteredAppointments[detailIndex].owner}</div>
+          <div><b>Nhóm:</b> {filteredAppointments[detailIndex].isGroupMeeting ? 'Có' : 'Không'}</div>
           <div><b>Thành viên:</b> {(filteredAppointments[detailIndex].members || []).join(', ') || 'Không có'}</div>
+          <div><b>Nhắc nhở:</b> {(filteredAppointments[detailIndex].reminderTimes || []).join(', ') || 'Không có'}</div>
           <div className={styles.detailButtonGroup}>
-            <button onClick={() => handleEdit(detailIndex)} className={styles.editButton}>
-              <span role="img" aria-label="edit">✏️</span> Sửa
-            </button>
-            <button onClick={() => handleDelete(detailIndex)} className={styles.deleteButton}>
-              <span role="img" aria-label="delete">🗑️</span> Xóa
-            </button>
+            {filteredAppointments[detailIndex].owner === user && (
+              <>
+                <button onClick={() => handleEdit(detailIndex)} className={styles.editButton}>
+                  <span role="img" aria-label="edit">✏️</span> Sửa
+                </button>
+                <button onClick={() => handleDelete(detailIndex)} className={styles.deleteButton}>
+                  <span role="img" aria-label="delete">🗑️</span> Xóa
+                </button>
+              </>
+            )}
             <button onClick={handleCloseDetail} className={styles.closeButton}>
               Đóng
             </button>
           </div>
         </div>
       )}
-      <div className={styles.timeline}>
+      <div className={styles.timeline} >
         <div className={styles.appointmentLabels}>
-          <div className={styles.emptyCell} />
+          <div className={styles.emptyCell} style={{ height: labelHeight }} />
+          <div className={styles.emptyCell} style={{ height: labelHeight }} />
           {Array.from({ length: minRows }).map((_, index) => (
-            <div key={index} className={styles.appointmentLabel}>
+            <div key={index} className={styles.appointmentLabel} style={{ height: rowHeight}}>
               {filteredAppointments[index]?.name || ''}
             </div>
           ))}
@@ -338,29 +448,15 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
         <div
           className={styles.timelineGrid}
           style={{
-            height: timelineHeight,
+            height: timelineHeight + labelHeight,
             width: timelineWidth,
             minWidth: timelineWidth,
             overflowX: 'auto',
-            position: 'relative'
+            position: 'relative',
+            paddingTop: labelHeight,
+            background: '#fff'
           }}
         >
-          {/* Grid giờ dọc */}
-          {hours.map((hour) => (
-            <div
-              key={hour}
-              className={styles.hourLine}
-              style={{
-                position: 'absolute',
-                left: `${hour * hourWidth}px`,
-                top: 0,
-                width: '1px',
-                height: '100%',
-                background: '#e0e0e0',
-                zIndex: 1,
-              }}
-            />
-          ))}
           {/* Label giờ */}
           {hours.map((hour) => (
             <div
@@ -369,17 +465,50 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
               style={{
                 position: 'absolute',
                 left: `${hour * hourWidth}px`,
-                top: '0',
+                top: 0,
                 width: `${hourWidth}px`,
+                height: `${labelHeight}px`,
                 textAlign: 'center',
                 color: '#4a148c',
                 fontWeight: 'bold',
                 fontSize: '0.8rem',
                 zIndex: 2,
+                background: '#fff'
               }}
             >
               {hour}
             </div>
+          ))}
+          {/* Grid dọc */}
+          {hours.map((hour) => (
+            <div
+              key={hour}
+              className={styles.hourLine}
+              style={{
+                position: 'absolute',
+                left: `${hour * hourWidth}px`,
+                top: labelHeight,
+                width: '1px',
+                height: timelineHeight,
+                background: '#e0e0e0',
+                zIndex: 1,
+              }}
+            />
+          ))}
+          {/* Grid ngang */}
+          {Array.from({ length: Math.max(filteredAppointments.length, minRows) + 1 }).map((_, rowIdx) => (
+            <div
+              key={'row-' + rowIdx}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: `${labelHeight + rowIdx * rowHeight}px`,
+                width: timelineWidth,
+                height: '1px',
+                background: '#e0e0e0',
+                zIndex: 1,
+              }}
+            />
           ))}
           {/* Các bar cuộc hẹn */}
           {filteredAppointments.map((appt, index) => {
@@ -395,7 +524,12 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
               <div
                 key={index}
                 className={styles.appointmentBar}
-                style={{ left, width, top: `${index * rowHeight}px`, height: `${rowHeight}px` }}
+                style={{
+                  left,
+                  width,
+                  top: `${labelHeight + index * rowHeight}px`,
+                  height: `${rowHeight}px`
+                }}
                 onClick={() => handleShowDetail(index)}
                 title={appt.name}
               >
@@ -405,6 +539,7 @@ function Timeline({ selectedDate, appointments, onUpdateAppointments, user }) {
           })}
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 }

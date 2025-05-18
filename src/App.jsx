@@ -1,55 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './components/Login';
 import Calendar from './components/Calendar';
 import Timeline from './components/Timeline';
+import { getAppointments } from './services/appointment';
 
 function App() {
-  const [user, setUser] = useState(null);
+  // Lưu user vào localStorage để giữ đăng nhập
+  const [user, setUser] = useState(() => localStorage.getItem('user') || null);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [appointments, setAppointments] = useState([
-    {
-      owner: 'alice',
-      name: 'Meeting',
-      start: '10:30',
-      end: '12:45',
-      date: '2025-04-01',
-      members: ['bob']
-    },
-    {
-      owner: 'alice',
-      name: 'Lunch',
-      start: '13:00',
-      end: '15:50',
-      date: '2025-04-01',
-      members: []
-    },
-    {
-      owner: 'bob',
-      name: 'Lunch',
-      start: '13:00',
-      end: '15:50',
-      date: '2025-05-17',
-      members: ['alice']
-    },
-    {
-      owner: 'bob',
-      name: 'Design Review',
-      start: '14:00',
-      end: '15:00',
-      date: '2025-07-08',
-      members: []
+  const [appointments, setAppointments] = useState([]);
+
+  // Lưu user vào localStorage mỗi khi thay đổi
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('user', user);
+    } else {
+      localStorage.removeItem('user');
     }
-  ]);
+  }, [user]);
+
+  // Hàm reload lại từ API
+  const reloadAppointments = () => {
+    getAppointments()
+      .then((data) => {
+        const mapped = Array.isArray(data) ? data.map(item => ({
+          id: item.id,
+          owner: item.owner,
+          name: item.title,
+          location: item.location,
+          date: item.startTime.slice(0, 10),
+          start: item.startTime.slice(11, 16),
+          end: item.endTime.slice(11, 16),
+          isGroupMeeting: item.isGroupMeeting,
+          members: item.members || [],
+          reminderTimes: item.reminderTimes || []
+        })) : [];
+        setAppointments(mapped);
+      })
+      .catch(() => setAppointments([]));
+  };
+
+  // Lấy dữ liệu từ API khi load app
+  useEffect(() => {
+    reloadAppointments();
+  }, []);
 
   const handleLogin = (username) => setUser(username);
   const handleDateClick = (date) => setSelectedDate(date);
-  const handleUpdateAppointments = (newAppointments) => setAppointments(newAppointments);
 
   // Lọc lịch của user hiện tại (là owner hoặc là thành viên)
-  const userAppointments = appointments.filter(
-    appt => appt.owner === user || (appt.members && appt.members.includes(user))
-  );
+  const userAppointments = user && Array.isArray(appointments)
+    ? appointments.filter(
+        appt =>
+          appt.owner === user ||
+          (Array.isArray(appt.members) && appt.members.includes(user))
+      )
+    : [];
 
   return (
     <Router>
@@ -92,11 +99,11 @@ function App() {
                       }}
                     >
                       <Timeline
-  selectedDate={selectedDate}
-  appointments={appointments} // truyền toàn bộ!
-  onUpdateAppointments={handleUpdateAppointments}
-  user={user}
-/>
+                        selectedDate={selectedDate}
+                        appointments={appointments}
+                        onUpdateAppointments={reloadAppointments}
+                        user={user}
+                      />
                     </div>
                   </div>
                 </div>
